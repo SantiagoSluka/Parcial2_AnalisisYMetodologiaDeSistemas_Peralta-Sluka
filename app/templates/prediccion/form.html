@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block titulo %}Riesgo de ausencia · ConsultorioSetFe{% endblock %}
+{% block contenido %}
+<div class="encabezado">
+  <div class="titulo">
+    <h1>Riesgo de ausencia</h1>
+   
+  </div>
+</div>
+
+<div class="indicadores">
+  <div class="indicador"><b>{{ '%.0f'|format(promedio * 100) }} %</b><small>ausentismo inicial del consultorio</small></div>
+  <div class="indicador bien"><b>≤ {{ '%.0f'|format(meta * 100) }} %</b><small>meta a 6 meses</small></div>
+  <div class="indicador {{ 'bien' if registrado is not none and registrado <= meta else ('alerta' if registrado is not none) }}">
+    <b>{{ '%.0f'|format(registrado * 100) ~ ' %' if registrado is not none else '—' }}</b>
+    <small>{% if cerrados %}registrado en el sistema ({{ cerrados }} turnos cerrados){% else %}registrado: todavía no hay turnos cerrados{% endif %}</small>
+  </div>
+</div>
+
+<div class="dos-columnas" style="grid-template-columns:minmax(0,1fr) minmax(0,1fr)">
+  <div class="tarjeta"><div class="tarjeta-cuerpo">
+    <h2 style="margin-bottom:4px">Datos del turno</h2>
+    <p class="suave" style="margin:0 0 18px">El modelo estima la probabilidad de que el turno termine en estado «ausente».</p>
+    <form method="post">
+      <div class="fila">
+        <label class="campo"><span>Días entre la reserva y el turno</span>
+          <input type="number" name="dias_anticipacion" min="0" max="60" required inputmode="numeric"
+                 value="{{ datos.get('dias_anticipacion', '') }}">
+          <small class="ayuda">De 0 a 60 (ventana máxima de reserva)</small>
+        </label>
+        <label class="campo"><span>Ausencias previas del paciente</span>
+          <input type="number" name="ausencias_previas" min="0" max="50" required inputmode="numeric"
+                 value="{{ datos.get('ausencias_previas', '') }}">
+          <small class="ayuda">Turnos anteriores en estado «ausente»</small>
+        </label>
+      </div>
+      <label class="check">
+        <input type="checkbox" name="es_videoconsulta" {{ 'checked' if datos.get('es_videoconsulta') }}>
+        <span>Es videoconsulta</span>
+      </label>
+      <label class="check">
+        <input type="checkbox" name="pago_online" {{ 'checked' if datos.get('pago_online') }}>
+        <span>Pagó online por adelantado</span>
+      </label>
+      <button type="submit" class="btn btn-primario btn-bloque">Calcular riesgo</button>
+    </form>
+  </div></div>
+
+  <div class="tarjeta"><div class="tarjeta-cuerpo resultado" role="status" aria-live="polite">
+    {% if probabilidad is not none %}
+      {% set nivel = 'bajo' if probabilidad <= meta else ('medio' if probabilidad <= promedio else 'alto') %}
+      <h2>Probabilidad de ausencia</h2>
+      <div class="porcentaje">{{ '%.0f'|format(probabilidad * 100) }} %</div>
+      <span class="nivel nivel-{{ nivel }}">Riesgo {{ nivel }}</span>
+      <div class="escala" aria-hidden="true">
+        <div class="marca-escala" style="left:{{ meta * 100 }}%"><span>Meta {{ '%.0f'|format(meta * 100) }} %</span></div>
+        <div class="marca-escala arriba" style="left:{{ promedio * 100 }}%"><span>Actual {{ '%.0f'|format(promedio * 100) }} %</span></div>
+        <div class="puntero" style="left:{{ [probabilidad, 1]|min * 100 }}%"></div>
+      </div>
+      <p style="text-align:left;margin:0">
+        {% if nivel == 'alto' %}
+          Está por encima del promedio del consultorio. Conviene <b>confirmar el turno</b> con el paciente
+          o sugerirle el <b>pago anticipado</b>, que reduce la ausencia a la mitad.
+        {% elif nivel == 'medio' %}
+          Está entre la meta y el promedio actual. Un llamado de confirmación ayuda a bajarlo.
+        {% else %}
+          Está dentro de la meta del consultorio. No hace falta ninguna acción extra.
+        {% endif %}
+      </p>
+    {% else %}
+      <h2>Probabilidad de ausencia</h2>
+      <div class="porcentaje suave">— %</div>
+      <p class="suave">Completá los datos del turno y tocá «Calcular riesgo».</p>
+      <ul class="lista-factores" style="text-align:left;margin-top:18px">
+        <li><span>Más días de anticipación</span><b class="suave">sube el riesgo</b></li>
+        <li><span>Ausencias previas</span><b class="suave">sube el riesgo</b></li>
+        <li><span>Videoconsulta</span><b class="suave">sube un poco</b></li>
+        <li><span>Pago online anticipado</span><b class="suave">lo baja a la mitad</b></li>
+      </ul>
+    {% endif %}
+  </div></div>
+</div>
+
+{% endblock %}

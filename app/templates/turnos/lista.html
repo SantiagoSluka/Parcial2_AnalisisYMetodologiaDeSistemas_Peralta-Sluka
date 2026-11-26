@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% block titulo %}Agenda · ConsultorioSetFe{% endblock %}
+
+{# RF-14 cambio rápido #}
+{% macro accion(t, estado, texto, clase="") %}
+<form method="post" action="{{ url_for('turnos.actualizar', id=t.id) }}?_method=PUT" class="en-linea"
+      {% if estado == 'cancelado' %}onsubmit="return confirm('¿Cancelar el turno de {{ t.paciente.apellido }}? El horario queda libre.')"{% endif %}>
+  <input type="hidden" name="dni" value="{{ t.paciente.dni }}">
+  <input type="hidden" name="nombre" value="{{ t.paciente.nombre }}">
+  <input type="hidden" name="apellido" value="{{ t.paciente.apellido }}">
+  <input type="hidden" name="telefono" value="{{ t.paciente.telefono or '' }}">
+  <input type="hidden" name="profesional_id" value="{{ t.profesional_id }}">
+  <input type="hidden" name="prestacion_id" value="{{ t.prestacion_id }}">
+  <input type="hidden" name="fecha" value="{{ t.fecha.isoformat() }}">
+  <input type="hidden" name="hora" value="{{ t.hora.strftime('%H:%M') }}">
+  <input type="hidden" name="modalidad" value="{{ t.modalidad }}">
+  {% if t.es_contraturno %}<input type="hidden" name="es_contraturno" value="on">{% endif %}
+  <input type="hidden" name="estado" value="{{ estado }}">
+  <input type="hidden" name="volver" value="{{ request.full_path }}">
+  <button class="btn-chico {{ clase }}">{{ texto }}</button>
+</form>
+{% endmacro %}
+
+{% macro fila(t) %}
+{% set activo = t.estado in activos %}
+<tr class="{{ 'contraturno' if t.es_contraturno }} {{ 'a-cerrar' if activo and t.fecha < hoy }} {{ 'cancelado-fila' if t.estado == 'cancelado' }} {{ 'destacado' if t.id == resaltar }}">
+  <td class="hora" data-label="Hora">{{ t.hora.strftime('%H:%M') }}{% if t.es_contraturno %}<span class="ct" title="Contra-turno intercalado">CT</span>{% endif %}</td>
+  <td class="nom" data-label="Paciente">
+    {{ t.paciente.apellido }}, {{ t.paciente.nombre }}
+    <small class="suave" style="display:block">DNI {{ t.paciente.dni }}</small>
+  </td>
+  <td data-label="Prestación">{{ t.prestacion.nombre }}</td>
+  <td class="nom" data-label="Profesional">{{ t.profesional.apellido }}, {{ t.profesional.nombre }}<small class="suave" style="display:block">{{ t.profesional.especialidad }}</small></td>
+  <td class="{{ 'modalidad-video' if t.modalidad == 'videoconsulta' }}" data-label="Modalidad">{{ t.modalidad|capitalize }}</td>
+  <td data-label="Canal">{{ t.canal|capitalize }}</td>
+  <td data-label="Estado">
+    <span class="estado estado-{{ t.estado }}">{{ t.estado|capitalize }}</span>
+    {% if activo and t.fecha < hoy %}<span class="aviso-cierre">Falta cerrar</span>{% endif %}
+  </td>
+  <td class="acciones">
+    {% if t.estado == 'pendiente' %}{{ accion(t, 'confirmado', 'Confirmar', 'ok') }}{% endif %}
+    {% if activo and t.fecha <= hoy %}
+      {{ accion(t, 'atendido', 'Atendió', 'ok') }}
+      {{ accion(t, 'ausente', 'No vino', 'malo') }}
+    {% endif %}
+    {% if activo %}
+      <a class="btn-chico" href="{{ url_for('turnos.editar', id=t.id) }}">Reprogramar</a>
+      {{ accion(t, 'cancelado', 'Cancelar', 'malo') }}
+    {% else %}
+      <a class="btn-chico" href="{{ url_for('turnos.editar', id=t.id) }}">Editar</a>
+    {% endif %}
+    <form method="post" action="{{ url_for('turnos.eliminar', id=t.id) }}?_method=DELETE" class="en-linea"
+          onsubmit="return confirm('¿Eliminar definitivamente este turno? Esta acción no se puede deshacer.')">
+      <input type="hidden" name="volver" value="{{ request.full_path }}">
+      <button class="btn-chico icono" title="Eliminar turno" aria-label="Eliminar turno de {{ t.paciente.apellido }}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>
+      </button>
+    </form>
+  </td>
+</tr>
+{% endmacro %}
+
+{% block contenido %}
+{% set filtro = {'profesional': profesional} if profesional else {} %}
+<div class="encabezado">
+  <div class="titulo">
+    <h1>Agenda · {% if vista == 'dia' %}{{ fecha|fecha_larga }}{% else %}todos los turnos{% endif %}</h1>
+    {% if vista == 'dia' and fecha == hoy %}<span class="chip-hoy">HOY</span>{% endif %}
+   
+  </div>
+  <div class="barra">
+    <a class="btn" href="{{ url_for('turnos.nuevo', es_contraturno='on', fecha=fecha.isoformat() if vista == 'dia' else None, profesional_id=profesional or None) }}">+ Contra-turno</a>
+    <a class="btn btn-primario" href="{{ url_for('turnos.nuevo', fecha=fecha.isoformat() if vista == 'dia' else None, profesional_id=profesional or None) }}">+ Nuevo turno</a>
+  </div>
+</div>
+
+<form method="get" class="barra" style="margin-bottom:16px" id="filtros">
+  <div class="segmentado" role="group" aria-label="Vista">
+    <a href="{{ url_for('turnos.lista', vista='dia', fecha=fecha.isoformat(), **filtro) }}" class="{{ 'activo' if vista == 'dia' }}">Día</a>
+    <a href="{{ url_for('turnos.lista', **filtro) }}" class="{{ 'activo' if vista == 'todos' }}">Todos</a>
+  </div>
+  {% if vista == 'dia' %}
+    <input type="hidden" name="vista" value="dia">
+    <div class="grupo">
+    <a class="btn" href="{{ url_for('turnos.lista', vista='dia', fecha=dia_anterior.isoformat(), **filtro) }}" aria-label="Día anterior">◀</a>
+    <input type="date" name="fecha" value="{{ fecha.isoformat() }}" aria-label="Fecha" onchange="this.form.submit()">
+    <a class="btn" href="{{ url_for('turnos.lista', vista='dia', fecha=dia_siguiente.isoformat(), **filtro) }}" aria-label="Día siguiente">▶</a>
+    {% if fecha != hoy %}<a class="btn" href="{{ url_for('turnos.lista', vista='dia', **filtro) }}">Hoy</a>{% endif %}
+    </div>
+  {% endif %}
+  <select name="profesional" aria-label="Profesional" onchange="this.form.submit()">
+    <option value="">Profesional: todos</option>
+    {% for p in profesionales %}
+    <option value="{{ p.id }}" {{ 'selected' if profesional == p.id|string }}>{{ p.apellido }}, {{ p.nombre }} · {{ p.especialidad }}</option>
+    {% endfor %}
+  </select>
+  <noscript><button class="btn">Filtrar</button></noscript>
+</form>
+
+<div class="indicadores">
+  <div class="indicador"><b>{{ turnos|length }}</b><small>turno{{ 's' if turnos|length != 1 }} en esta vista</small></div>
+  <div class="indicador {{ 'alerta' if a_cerrar }}"><b>{{ a_cerrar }}</b><small>de días anteriores sin cerrar</small></div>
+  <div class="indicador {{ 'bien' if ausentismo is not none and ausentismo <= meta else ('alerta' if ausentismo is not none) }}">
+    <b>{{ '%.0f'|format(ausentismo * 100) ~ ' %' if ausentismo is not none else '—' }}</b>
+    <small>ausentismo registrado · meta ≤ {{ '%.0f'|format(meta * 100) }} %{% if cerrados %} ({{ cerrados }} cerrados){% endif %}</small>
+  </div>
+</div>
+
+<div class="tarjeta">
+  {% if turnos %}
+  <div class="tabla-envoltura">
+    <table>
+      <thead>
+        <tr>
+          <th>Hora</th>
+          <th>Paciente</th>
+          <th>Prestación</th>
+          <th>Profesional</th>
+          <th>Modalidad</th>
+          <th>Canal</th>
+          <th>Estado</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% if vista == 'dia' %}
+        {% for t in turnos %}{{ fila(t) }}{% endfor %}
+      {% else %}
+        {% for grupo in turnos|groupby('fecha') %}
+        <tr class="dia {{ 'hoy' if grupo.grouper == hoy }}">
+          <th colspan="8">
+            <a href="{{ url_for('turnos.lista', vista='dia', fecha=grupo.grouper.isoformat(), **filtro) }}" style="color:inherit;text-decoration:none">{{ grupo.grouper|fecha_larga|capitalize }}</a>
+            {% if grupo.grouper == hoy %}<span class="chip-hoy">HOY</span>{% endif %}
+            <span class="lado suave">{{ grupo.list|length }} turno{{ 's' if grupo.list|length != 1 }}
+              {% if grupo.grouper >= hoy %}· <a href="{{ url_for('turnos.nuevo', fecha=grupo.grouper.isoformat(), profesional_id=profesional or None) }}">+ Turno</a>{% endif %}
+            </span>
+          </th>
+        </tr>
+        {% for t in grupo.list %}{{ fila(t) }}{% endfor %}
+        {% endfor %}
+      {% endif %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="vacio">
+    <h2>{% if vista == 'dia' %}No hay turnos para el {{ fecha|fecha_larga }}{% else %}Todavía no hay turnos cargados{% endif %}</h2>
+    <p>
+      {% if proximo %}El próximo día con turnos es el
+        <a href="{{ url_for('turnos.lista', vista='dia', fecha=proximo.fecha.isoformat(), **filtro) }}">{{ proximo.fecha|fecha_larga }}</a>.
+      {% else %}Cargá el primero desde el mostrador.{% endif %}
+    </p>
+    {% if vista != 'dia' or fecha >= hoy %}
+    <a class="btn btn-primario" href="{{ url_for('turnos.nuevo', fecha=fecha.isoformat() if vista == 'dia' else None, profesional_id=profesional or None) }}">+ Nuevo turno</a>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+
+<p class="leyenda">CT = contra-turno intercalado en un horario ocupado</p>
+{% endblock %}

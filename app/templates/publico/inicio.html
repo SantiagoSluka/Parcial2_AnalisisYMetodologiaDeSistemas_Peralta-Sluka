@@ -1,0 +1,115 @@
+{% extends "publico/base.html" %}
+{% block cuerpo %}
+{% set destacado = profesionales[0] if profesionales else none %}
+
+{% with mensajes = get_flashed_messages(with_categories=true) %}
+  {% if mensajes %}
+  <div class="contenedor" style="padding-top:20px">
+    {% for categoria, mensaje in mensajes %}<div class="aviso aviso-{{ categoria }}" role="status">{{ mensaje }}</div>{% endfor %}
+  </div>
+  {% endif %}
+{% endwith %}
+
+{# ── Portada ── #}
+<section class="portada">
+  <div class="contenedor">
+    <div class="portada-texto">
+      <p class="chip">Consultorio médico</p>
+      <h1>{{ consultorio.nombre }}</h1>
+      <p class="lema">{{ consultorio.lema }}</p>
+      <div class="acciones-portada">
+        <a href="{{ url_for('publico.reservar') }}" class="btn btn-blanco btn-grande">Sacar un turno</a>
+        <a href="{{ url_for('publico.mis_turnos') }}" class="btn btn-borde btn-grande">Ya tengo un turno</a>
+      </div>
+      <p class="llamar">¿Preferís llamar? <a href="tel:{{ consultorio.telefono|replace(' ', '') }}">{{ consultorio.telefono }}</a></p>
+    </div>
+  </div>
+</section>
+
+{# ── Profesionales y servicios ── #}
+<section class="seccion" aria-labelledby="titulo-servicios">
+  <div class="contenedor equipo-y-servicios">
+    <div class="equipo">
+      {% if destacado %}
+      <div class="retrato"><div class="avatar" aria-hidden="true">{{ destacado.iniciales }}</div></div>
+      <div class="te-atiende">
+        <p class="rotulo">Te atiende</p>
+        <p class="nombre-profesional">{{ destacado.nombre_publico }}</p>
+        <p class="especialidad">{{ destacado.especialidad }}</p>
+        {% if destacado.frase %}<p class="frase">{{ destacado.frase }}</p>{% endif %}
+      </div>
+      {% endif %}
+      {% if profesionales|length > 1 %}
+      <div class="otros">
+        <p class="rotulo">También te atienden</p>
+        <ul>
+          {% for otro in profesionales[1:] %}
+          <li>
+            <span class="mini-avatar" aria-hidden="true">{{ otro.iniciales }}</span>
+            <span><b>{{ otro.nombre_publico }}</b><small>{{ otro.especialidad }}</small></span>
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+    </div>
+
+    <div>
+      <h2 id="titulo-servicios" class="titulo-seccion">Qué atendemos</h2>
+      <p class="bajada">Tocá una consulta para ver los horarios que hay libres.</p>
+      <ul class="servicios">
+        {% for p in prestaciones %}
+        <li>
+          <a href="{{ url_for('publico.reservar', prestacion=p.id) }}" class="tarjeta tarjeta-viva servicio">
+            <span class="icono-servicio" style="background-color: {{ p.color or '#4a6b61' }}1f" aria-hidden="true">{{ p.icono or '✚' }}</span>
+            <span class="servicio-texto"><b>{{ p.nombre }}</b>{% if p.descripcion %}<span>{{ p.descripcion }}</span>{% endif %}</span>
+            <span class="flecha" aria-hidden="true">›</span>
+          </a>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+</section>
+
+{# ── Cómo sacar turno ── #}
+<section class="seccion seccion-blanca" aria-labelledby="titulo-pasos">
+  <div class="contenedor">
+    <h2 id="titulo-pasos" class="titulo-seccion centrado">Sacar un turno es fácil</h2>
+    <ol class="tres-pasos">
+      {% for titulo, texto in [
+        ('Elegí para qué', 'Médico de familia, una ecografía, un electrocardiograma… lo que necesites.'),
+        ('Elegí día y hora', 'Vas a ver el calendario con todos los horarios que están libres.'),
+        ('Confirmá con tu cuenta', 'Ingresá o creá tu cuenta con tu DNI y listo: el turno queda en «Mis turnos».'),
+      ] %}
+      <li><span class="numero" aria-hidden="true">{{ loop.index }}</span><h3>{{ titulo }}</h3><p>{{ texto }}</p></li>
+      {% endfor %}
+    </ol>
+    <p class="centrado" style="margin-top:48px">
+      <a href="{{ url_for('publico.reservar') }}" class="btn btn-primario btn-grande" style="font-size:20px">Empezar ahora</a>
+    </p>
+  </div>
+</section>
+
+{# ── Cómo llegar ── #}
+<section class="seccion seccion-menta" aria-labelledby="titulo-ubicacion">
+  <div class="contenedor ubicacion">
+    <div class="tarjeta tarjeta-cuerpo">
+      <h2 id="titulo-ubicacion" class="titulo-ubicacion"><span class="pin" aria-hidden="true">📍</span>Dónde estamos</h2>
+      <dl class="datos">
+        <div><dt>Dirección</dt><dd>{{ consultorio.direccion }}</dd></div>
+        <div><dt>Teléfono</dt><dd><a href="tel:{{ consultorio.telefono|replace(' ', '') }}">{{ consultorio.telefono }}</a></dd></div>
+        <div><dt>WhatsApp</dt><dd>{{ consultorio.whatsapp }}</dd></div>
+      </dl>
+      <p class="indicaciones">{{ consultorio.indicaciones }}</p>
+      <a href="https://maps.google.com/maps?q={{ consultorio.direccion|urlencode }}" target="_blank" rel="noopener noreferrer"
+         class="btn btn-secundario" style="margin-top:24px">Cómo llegar ↗</a>
+    </div>
+    <div class="mapa">
+      <iframe src="https://maps.google.com/maps?q={{ consultorio.direccion|urlencode }}&output=embed"
+              title="Mapa con la ubicación de {{ consultorio.nombre }}" loading="lazy"
+              referrerpolicy="no-referrer-when-downgrade"></iframe>
+    </div>
+  </div>
+</section>
+{% endblock %}

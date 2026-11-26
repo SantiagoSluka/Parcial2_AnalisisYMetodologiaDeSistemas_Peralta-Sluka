@@ -1,0 +1,10 @@
+{# Indicador de pasos #}
+<ol class="pasos" aria-label="Pasos para sacar el turno">
+  {% for texto in ['¿Qué necesitás?', 'Día y horario', 'Confirmar'] %}
+  <li class="{{ 'hecho' if paso > loop.index else ('actual' if paso == loop.index) }}"
+      {% if paso == loop.index %}aria-current="step"{% endif %}>
+    <span class="paso-numero" aria-hidden="true">{{ '✓' if paso > loop.index else loop.index }}</span>
+    <span class="paso-texto">{{ texto }}</span>
+  </li>
+  {% endfor %}
+</ol>

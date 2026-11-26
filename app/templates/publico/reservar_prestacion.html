@@ -1,0 +1,30 @@
+{% extends "publico/base.html" %}
+{% block titulo %}Sacar turno · {{ consultorio.nombre }}{% endblock %}
+{% block contenido %}
+{% with paso = 1 %}{% include "publico/_pasos.html" %}{% endwith %}
+
+<h1 class="titulo-paso">¿Qué necesitás?</h1>
+<p class="bajada">Si no estás seguro, elegí <strong>Médico de familia</strong>.</p>
+
+<ul class="servicios servicios-grilla">
+  {% for p in prestaciones %}
+  <li>
+    <a href="{{ url_for('publico.reservar', prestacion=p.id) }}" class="tarjeta tarjeta-viva servicio" style="height:100%">
+      <span class="icono-servicio" style="background-color: {{ p.color or '#4a6b61' }}1f" aria-hidden="true">{{ p.icono or '✚' }}</span>
+      <span class="servicio-texto">
+        <b>{{ p.nombre }}</b>
+        {% if p.descripcion %}<span>{{ p.descripcion }}</span>{% endif %}
+        <span class="precio">{{ p.precio|pesos }}</span>
+      </span>
+      <span class="flecha" aria-hidden="true">›</span>
+    </a>
+  </li>
+  {% endfor %}
+</ul>
+
+<div class="ayuda-telefono">
+  <p>¿Preferís hablar con alguien?</p>
+  <b>{{ consultorio.telefono }}</b>
+  <p class="suave" style="margin-top:8px">También podés <a class="enlace" href="{{ url_for('publico.mis_turnos') }}">ver los turnos que ya tenés</a>.</p>
+</div>
+{% endblock %}

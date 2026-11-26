@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#4a6b61">
+  <meta name="description" content="Sacá tu turno online en {{ consultorio.nombre }}. Elegí el día y el horario que mejor te queda.">
+  <link rel="icon" href="data:,">
+  <title>{% block titulo %}Turnos online · {{ consultorio.nombre }}{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/publico.css') }}">
+</head>
+<body>
+  <a class="saltar" href="#contenido">Ir al contenido</a>
+
+  <header class="encabezado">
+    <div class="contenedor">
+      <a href="{{ url_for('publico.inicio') }}" class="logo">
+        <span class="cruz" aria-hidden="true">✚</span>
+        <span><b>{{ consultorio.nombre }}</b><small>Turnos online</small></span>
+      </a>
+      <nav class="menu" aria-label="Principal">
+        {% if current_user.is_authenticated and current_user.es_personal %}
+          <a class="enlace-menu" href="{{ url_for('turnos.lista') }}">Panel</a>
+        {% elif current_user.is_authenticated %}
+          <a class="enlace-menu {{ 'activo' if request.endpoint in ('publico.mis_turnos', 'publico.comprobante') }}"
+             href="{{ url_for('publico.mis_turnos') }}">Mis turnos</a>
+        {% else %}
+          <a class="enlace-menu {{ 'activo' if request.endpoint in ('auth.login', 'auth.registro') }}"
+             href="{{ url_for('auth.login') }}">Ingresar</a>
+        {% endif %}
+        {% if current_user.is_authenticated %}
+          <form method="post" action="{{ url_for('auth.logout') }}"><button class="enlace-menu">Salir</button></form>
+        {% endif %}
+        <a class="btn btn-primario" href="{{ url_for('publico.reservar') }}">Sacar turno</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="contenido">
+    {% block cuerpo %}
+    <div class="contenedor pagina">
+      {% include "publico/_mensajes.html" %}
+      {% block contenido %}{% endblock %}
+    </div>
+    {% endblock %}
+  </main>
+
+  <footer class="pie">
+    <div class="contenedor pie-columnas">
+      <div>
+        <p class="pie-marca"><span class="cruz" aria-hidden="true">✚</span>{{ consultorio.nombre }}</p>
+        <p style="margin-top:8px">{{ consultorio.direccion }}</p>
+      </div>
+      <div>
+        <b>Contacto</b>
+        <p><a href="tel:{{ consultorio.telefono|replace(' ', '') }}">{{ consultorio.telefono }}</a></p>
+        <p><a href="mailto:{{ consultorio.email }}">{{ consultorio.email }}</a></p>
+      </div>
+      <div>
+        <b>Turnos</b>
+        <p><a href="{{ url_for('publico.reservar') }}">Sacar un turno</a></p>
+        <p><a href="{{ url_for('publico.mis_turnos') }}">Consultar o cancelar</a></p>
+      </div>
+    </div>
+    <div class="pie-legal">
+      <p class="urgencia">Ante una urgencia médica llamá al <strong>107</strong> o acercate a la guardia más cercana.</p>
+      <p>© {{ anio }} {{ consultorio.nombre }} ·
+        <a href="{{ url_for('auth.login', next=url_for('turnos.lista')) }}" rel="nofollow">Acceso del consultorio</a></p>
+    </div>
+  </footer>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

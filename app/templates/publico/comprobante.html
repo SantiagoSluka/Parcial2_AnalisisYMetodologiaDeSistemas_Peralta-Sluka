@@ -1,0 +1,59 @@
+{% extends "publico/base.html" %}
+{% block titulo %}Tu turno · {{ consultorio.nombre }}{% endblock %}
+{% block contenido %}
+{% set cancelado = turno.estado == 'cancelado' %}
+<div class="angosto">
+  {% if cancelado %}
+    <div class="aviso aviso-info">Este turno está cancelado. Si necesitás otro, podés
+      <a class="enlace" href="{{ url_for('publico.reservar') }}">sacar un turno nuevo</a>.</div>
+  {% endif %}
+
+  {# RF-09 comprobante #}
+  <div class="tarjeta comprobante">
+    <div class="comprobante-cabecera {{ 'cancelado' if cancelado }}">
+      <small>{{ 'Turno cancelado' if cancelado else 'Turno ' ~ turno.estado }}</small>
+      <p>{{ (turno.fecha|fecha_completa)|capitalize }}</p>
+      <p class="hora-grande">{{ turno.hora.strftime('%H:%M') }} hs</p>
+    </div>
+    <div class="tarjeta-cuerpo">
+      <dl class="detalle">
+        <div><dt>{{ turno.prestacion.tipo|capitalize }}</dt><dd><strong><span aria-hidden="true">{{ turno.prestacion.icono or '' }}</span> {{ turno.prestacion.nombre }}</strong></dd></div>
+        <div><dt>Código del turno<small>Para nombrarlo si llamás al consultorio</small></dt><dd class="codigo">{{ turno.token_comprobante[:8]|upper }}</dd></div>
+        <div><dt>Paciente</dt><dd>{{ turno.paciente.nombre }} {{ turno.paciente.apellido }}<br><small class="suave">DNI ***{{ turno.paciente.dni[-3:] }}</small></dd></div>
+        <div><dt>Profesional</dt><dd>{{ turno.profesional.nombre_publico }}</dd></div>
+        <div><dt>Duración</dt><dd>{{ turno.duracion }} minutos</dd></div>
+        <div><dt>Cómo se atiende</dt><dd>{{ '💻 Por videollamada' if turno.modalidad == 'videoconsulta' else '🏥 En el consultorio' }}</dd></div>
+        <div><dt>Valor de la consulta</dt><dd><strong>{{ turno.prestacion.precio|pesos }}</strong><br><small class="suave">Se paga en el consultorio</small></dd></div>
+        {% if turno.modalidad != 'videoconsulta' %}<div><dt>Dirección</dt><dd>{{ consultorio.direccion }}</dd></div>{% endif %}
+      </dl>
+
+      {% if not cancelado %}
+        <p class="nota-turno">{{ consultorio.indicaciones }}</p>
+        <div class="acciones-turno sin-imprimir">
+          <a href="{{ google }}" target="_blank" rel="noopener noreferrer" class="btn btn-secundario">📅 Agendar en Google Calendar</a>
+          <button type="button" class="btn btn-secundario" onclick="window.print()">🖨️ Imprimir este turno</button>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if puede_cancelar %}
+    <div class="tarjeta tarjeta-cuerpo sin-imprimir" style="margin-top:24px">
+      <h2 style="font-size:18px">¿No vas a poder venir?</h2>
+      <p class="suave chico" style="margin-top:4px">Avisanos y liberás el horario para otra persona. Se puede cancelar hasta 4 horas antes.</p>
+      <form method="post" action="{{ url_for('publico.cancelar', token=turno.token_comprobante) }}?_method=PATCH"
+            onsubmit="return confirm('¿Seguro que querés cancelar este turno?')" style="margin-top:16px">
+        <button type="submit" class="btn btn-peligro">Cancelar mi turno</button>
+      </form>
+    </div>
+  {% elif not cancelado and turno.estado in ('pendiente', 'confirmado') %}
+    <div class="aviso aviso-info sin-imprimir" style="margin-top:24px">
+      Faltan menos de 4 horas: para cancelar este turno comunicate con el consultorio al {{ consultorio.telefono }}.
+    </div>
+  {% endif %}
+
+  <p class="centrado suave chico sin-imprimir" style="margin-top:24px">
+    Podés volver a verlo cuando quieras desde <a class="enlace" href="{{ url_for('publico.mis_turnos') }}">Mis turnos</a>.
+  </p>
+</div>
+{% endblock %}

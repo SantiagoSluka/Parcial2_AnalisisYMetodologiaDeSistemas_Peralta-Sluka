@@ -1,0 +1,39 @@
+{% extends "publico/base.html" %}
+{% block titulo %}Crear cuenta · {{ consultorio.nombre }}{% endblock %}
+{% block contenido %}
+<div class="cuenta">
+  <div class="tarjeta tarjeta-cuerpo">
+    <h1>Creá tu cuenta</h1>
+    <p class="bajada">Una sola vez: después sacás tus turnos en segundos.</p>
+    <form method="post">
+      <label class="campo"><span>Número de documento</span>
+        <input name="dni" required pattern="\d{7,8}" maxlength="8" inputmode="numeric" autocomplete="off"
+               placeholder="30123456" value="{{ request.form.get('dni', '') }}">
+        <small>Solo los números, sin puntos.</small>
+      </label>
+      <div class="dos">
+        <label class="campo"><span>Nombre</span>
+          <input name="nombre" required maxlength="60" autocomplete="given-name" value="{{ request.form.get('nombre', '') }}">
+        </label>
+        <label class="campo"><span>Apellido</span>
+          <input name="apellido" required maxlength="60" autocomplete="family-name" value="{{ request.form.get('apellido', '') }}">
+        </label>
+      </div>
+      <label class="campo"><span>Teléfono</span>
+        <input name="telefono" type="tel" required pattern="\d{10}" maxlength="10" inputmode="numeric" autocomplete="tel"
+               placeholder="1122334455" value="{{ request.form.get('telefono', '') }}">
+        <small>10 números con característica, sin 0 ni 15. Lo usamos para avisarte cualquier cambio del turno.</small>
+      </label>
+      <label class="campo"><span>Email</span>
+        <input type="email" name="email" required maxlength="120" autocomplete="email" value="{{ request.form.get('email', '') }}">
+      </label>
+      <label class="campo"><span>Contraseña</span>
+        <input type="password" name="contrasena" required minlength="8" maxlength="72" autocomplete="new-password">
+        <small>Entre 8 y 72 caracteres. Se guarda encriptada con Bcrypt.</small>
+      </label>
+      <button type="submit" class="btn btn-primario btn-bloque">Crear mi cuenta</button>
+    </form>
+    <p class="al-pie">¿Ya tenés cuenta? <a class="enlace" href="{{ url_for('auth.login', next=request.args.get('next')) }}">Ingresá</a></p>
+  </div>
+</div>
+{% endblock %}

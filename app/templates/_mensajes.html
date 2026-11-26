@@ -1,0 +1,3 @@
+{% for categoria, mensaje in get_flashed_messages(with_categories=true) %}
+  <div class="mensaje {{ categoria }}" role="{{ 'alert' if categoria == 'error' else 'status' }}">{{ mensaje }}</div>
+{% endfor %}

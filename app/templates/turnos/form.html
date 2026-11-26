@@ -1,0 +1,265 @@
+{% extends "base.html" %}
+{% block titulo %}{{ "Editar" if turno else "Nuevo" }} turno · ConsultorioSetFe{% endblock %}
+{% block contenido %}
+<div class="encabezado">
+  <div class="titulo">
+    <h1>{% if turno %}Editar turno{% else %}Nuevo turno <span class="suave" style="font-weight:400">(alta manual)</span>{% endif %}</h1>
+   
+  </div>
+  <a class="btn" href="{{ url_for('turnos.lista') }}">← Volver a la agenda</a>
+</div>
+
+<div class="dos-columnas">
+  <div class="tarjeta"><div class="tarjeta-cuerpo">
+    <form method="post" id="form-turno" novalidate
+          action="{{ url_for('turnos.actualizar', id=turno.id) ~ '?_method=PUT' if turno else url_for('turnos.crear') }}">
+
+      <fieldset>
+        <legend>Paciente</legend>
+        <div class="fila">
+          <label class="campo" id="campo-dni"><span>DNI</span>
+            <input name="dni" id="dni" value="{{ datos.get('dni', '') }}" required pattern="\d{7,8}" maxlength="8"
+                   inputmode="numeric" placeholder="Sin puntos" autocomplete="off">
+            <small class="ayuda-error" id="error-dni" hidden>El DNI debe tener solo números (7 u 8 dígitos).</small>
+          </label>
+          <label class="campo"><span>Apellido</span>
+            <input name="apellido" id="apellido" value="{{ datos.get('apellido', '') }}" required maxlength="60">
+          </label>
+        </div>
+        <div id="identificado" class="identificado" hidden></div>
+        <div class="fila">
+          <label class="campo"><span>Nombre</span>
+            <input name="nombre" id="nombre" value="{{ datos.get('nombre', '') }}" required maxlength="60">
+          </label>
+          <label class="campo" id="campo-telefono"><span>Teléfono <small>(opcional)</small></span>
+            <input name="telefono" id="telefono" value="{{ datos.get('telefono', '') }}" pattern="\d{10}" maxlength="10"
+                   inputmode="numeric" placeholder="1155551234">
+            <small class="ayuda-error" id="error-telefono" hidden>Ingresá 10 dígitos con característica, sin 0 ni 15.</small>
+          </label>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Turno</legend>
+        <div class="fila">
+          <label class="campo"><span>Prestación</span>
+            <select name="prestacion_id" id="prestacion" required>
+              <option value="">Elegí…</option>
+              {% for grupo in prestaciones|groupby('tipo') %}
+              <optgroup label="{{ 'Consultas' if grupo.grouper == 'consulta' else 'Estudios' }}">
+                {% for p in grupo.list %}
+                <option value="{{ p.id }}" {{ 'selected' if datos.get('prestacion_id') == p.id|string }}>
+                  {{ p.nombre }} · ${{ '{:,.0f}'.format(p.precio).replace(',', '.') }}
+                </option>
+                {% endfor %}
+              </optgroup>
+              {% endfor %}
+            </select>
+          </label>
+          <label class="campo"><span>Profesional</span>
+            <select name="profesional_id" id="profesional" required>
+              <option value="">Elegí…</option>
+              {% for p in profesionales %}
+              <option value="{{ p.id }}" {{ 'selected' if datos.get('profesional_id') == p.id|string }}>
+                {{ p.apellido }}, {{ p.nombre }} · {{ p.especialidad }}
+              </option>
+              {% endfor %}
+            </select>
+          </label>
+        </div>
+        <div class="fila">
+          <label class="campo"><span>Fecha</span>
+            <input type="date" name="fecha" id="fecha" value="{{ datos.get('fecha', '') }}" required
+                   {% if not turno %}min="{{ hoy.isoformat() }}"{% endif %}>
+          </label>
+          <label class="campo"><span>Hora</span>
+            <input type="time" name="hora" id="hora" value="{{ datos.get('hora', '') }}" required step="300">
+          </label>
+        </div>
+        <div class="fila">
+          <div class="campo"><span>Modalidad</span>
+            <div class="segmentado" role="radiogroup" aria-label="Modalidad">
+              {% for m in modalidades %}
+              <label><input type="radio" name="modalidad" value="{{ m }}" required
+                     {{ 'checked' if datos.get('modalidad', 'presencial') == m }}>{{ m|capitalize }}</label>
+              {% endfor %}
+            </div>
+          </div>
+          {% if turno %}
+          <label class="campo"><span>Estado</span>
+            <select name="estado" required>
+              {% for e in estados %}
+              <option value="{{ e }}" {{ 'selected' if datos.get('estado', 'pendiente') == e }}>{{ e|capitalize }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          {% else %}
+          <input type="hidden" name="estado" value="pendiente">
+          {% endif %}
+        </div>
+
+        <p class="ayuda" id="aviso-modalidad" hidden style="margin:-6px 0 12px"></p>
+        <div class="advertencia" id="incompatible" role="alert" hidden></div>
+        <div class="advertencia" id="superposicion" role="alert" hidden>
+          <b>⚠ El horario seleccionado ya posee un turno</b> (<span id="superposicion-detalle"></span>).
+          Para guardarlo, marcá «Es contra-turno»; se intercalará en ese horario.
+        </div>
+        <label class="check">
+          <input type="checkbox" name="es_contraturno" id="contraturno" {{ 'checked' if datos.get('es_contraturno') }}>
+          <span>Es contra-turno <small>(intercalar en un horario ocupado)</small></span>
+        </label>
+      </fieldset>
+
+      <div class="barra" style="justify-content:flex-end">
+        <a class="btn" href="{{ url_for('turnos.lista') }}">Cancelar</a>
+        <button type="submit" class="btn btn-primario" id="guardar">Guardar turno</button>
+      </div>
+    </form>
+  </div></div>
+
+  <aside class="tarjeta ocupacion"><div class="tarjeta-cuerpo">
+    <h3>Ocupación del día</h3>
+    <small id="ocupacion-sub">Elegí profesional y fecha para ver los horarios tomados.</small>
+    <ul id="ocupacion-lista"></ul>
+    {% if turno %}
+    <dl class="datos-turno">
+      <dt>Canal</dt><dd>{{ turno.canal|capitalize }}</dd>
+      <dt>Comprobante</dt><dd><code>{{ turno.token_comprobante }}</code></dd>
+    </dl>
+    {% endif %}
+    <p class="nota" style="margin:14px 0 0">Reglas de reserva: desde 2 h antes hasta 60 días hacia adelante · tope de 2 turnos activos por paciente.</p>
+  </div></aside>
+</div>
+
+
+<script type="application/json" id="datos-ocupados">{{ ocupados|tojson }}</script>
+<script type="application/json" id="datos-pacientes">{{ pacientes|tojson }}</script>
+<script type="application/json" id="datos-realiza">{{ realiza|tojson }}</script>
+<script type="application/json" id="datos-video">{{ admite_video|tojson }}</script>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var ocupados = JSON.parse(document.getElementById("datos-ocupados").textContent);
+  var pacientes = JSON.parse(document.getElementById("datos-pacientes").textContent);
+  var realiza = JSON.parse(document.getElementById("datos-realiza").textContent);
+  var admiteVideo = JSON.parse(document.getElementById("datos-video").textContent);
+  var $ = function (id) { return document.getElementById(id); };
+  var form = $("form-turno"), guardar = $("guardar"), contraturno = $("contraturno");
+  var profesional = $("profesional"), fecha = $("fecha"), hora = $("hora");
+  var dni = $("dni"), apellido = $("apellido"), nombre = $("nombre"), telefono = $("telefono");
+  var original = { profesional: profesional.value, fecha: fecha.value, hora: hora.value };
+  var esEdicion = {{ 'true' if turno else 'false' }};
+
+  // CU-08 superposición
+  function revisarHorario() {
+    var lista = $("ocupacion-lista"), sub = $("ocupacion-sub");
+    lista.innerHTML = "";
+    var delDia = ocupados.filter(function (o) {
+      return String(o.profesional) === profesional.value && o.fecha === fecha.value;
+    });
+    var mismoHorario = esEdicion && profesional.value === original.profesional &&
+                       fecha.value === original.fecha && hora.value === original.hora;
+    var choques = mismoHorario ? [] : delDia.filter(function (o) { return o.hora === hora.value; });
+
+    if (!profesional.value || !fecha.value) {
+      sub.textContent = "Elegí profesional y fecha para ver los horarios tomados.";
+    } else if (!delDia.length) {
+      sub.textContent = "Sin turnos tomados ese día: cualquier horario está libre.";
+    } else {
+      sub.textContent = delDia.length + (delDia.length === 1 ? " horario tomado" : " horarios tomados") + " ese día:";
+      delDia.forEach(function (o) {
+        var li = document.createElement("li");
+        if (o.hora === hora.value && !mismoHorario) li.className = "choque";
+        var b = document.createElement("b"); b.textContent = o.hora + (o.contraturno ? " CT" : "");
+        var s = document.createElement("span"); s.textContent = o.paciente + " · " + o.prestacion;
+        li.appendChild(b); li.appendChild(s); lista.appendChild(li);
+      });
+    }
+
+    $("superposicion").hidden = choques.length === 0;
+    if (choques.length) {
+      $("superposicion-detalle").textContent = choques.map(function (o) { return o.paciente + " · " + o.prestacion; }).join("; ");
+    }
+    guardar.disabled = choques.length > 0 && !contraturno.checked;
+  }
+
+  // RF-07 paciente
+  function revisarPaciente() {
+    var caja = $("identificado");
+    var valido = /^\d{7,8}$/.test(dni.value);
+    var p = valido ? pacientes[dni.value] : null;
+    apellido.readOnly = false;
+    if (!valido) { caja.hidden = true; return; }
+    caja.hidden = false;
+    if (p) {
+      if (apellido.value && apellido.value.trim().toLowerCase() !== p.apellido.toLowerCase()) {
+        caja.className = "identificado choca";
+        caja.textContent = "✕ El DNI " + dni.value + " está registrado con otro apellido. Revisá los datos.";
+        return;
+      }
+      apellido.value = p.apellido; nombre.value = p.nombre; telefono.value = p.telefono;
+      apellido.readOnly = true;  // Apellido fijo
+      caja.className = "identificado existe";
+      caja.textContent = "✓ Paciente registrado: " + p.apellido + ", " + p.nombre + ". Si corregís el nombre o el teléfono, se actualizan al guardar.";
+    } else {
+      caja.className = "identificado nuevo";
+      caja.textContent = "Paciente nuevo: se dará de alta al guardar el turno.";
+    }
+  }
+
+  // D3 y D1
+  var prestacion = $("prestacion");
+  var radioVideo = form.querySelector('input[name="modalidad"][value="videoconsulta"]');
+  var radioPresencial = form.querySelector('input[name="modalidad"][value="presencial"]');
+  var original2 = { profesional: profesional.value, prestacion: prestacion.value, video: radioVideo.checked };
+  function hace(prof, prest) { return (realiza[prof] || []).indexOf(Number(prest)) !== -1; }
+  function revisarServicio() {
+    Array.prototype.forEach.call(prestacion.options, function (o) {
+      o.disabled = !!(o.value && profesional.value && !o.selected && !hace(profesional.value, o.value));
+    });
+    Array.prototype.forEach.call(profesional.options, function (o) {
+      o.disabled = !!(o.value && prestacion.value && !o.selected && !hace(o.value, prestacion.value));
+    });
+    var sinCambios = esEdicion && profesional.value === original2.profesional && prestacion.value === original2.prestacion;
+    var choca = profesional.value && prestacion.value && !hace(profesional.value, prestacion.value) && !sinCambios;
+    $("incompatible").hidden = !choca;
+    if (choca) {
+      $("incompatible").textContent = "⚠ " + profesional.options[profesional.selectedIndex].text.split(" · ")[0] +
+        " no realiza " + prestacion.options[prestacion.selectedIndex].text.split(" · ")[0] + ". Elegí otra prestación o profesional.";
+    }
+    var sinVideo = prestacion.value && !admiteVideo[prestacion.value];
+    var mantener = esEdicion && sinCambios && original2.video;  // Turno previo
+    radioVideo.disabled = !!(sinVideo && !mantener);
+    if (radioVideo.disabled && radioVideo.checked) { radioPresencial.checked = true; }
+    $("aviso-modalidad").hidden = !radioVideo.disabled;
+    $("aviso-modalidad").textContent = "Esta prestación no admite videoconsulta: solo presencial.";
+    guardar.disabled = guardar.disabled || choca;
+  }
+  prestacion.addEventListener("change", function () { revisarHorario(); revisarServicio(); });
+
+  // RNF-04 errores
+  function marcar(campo, error, valido) {
+    $(campo).classList.toggle("con-error", !valido);
+    $(error).hidden = valido;
+  }
+  dni.addEventListener("blur", function () { marcar("campo-dni", "error-dni", !dni.value || /^\d{7,8}$/.test(dni.value)); });
+  telefono.addEventListener("blur", function () { marcar("campo-telefono", "error-telefono", !telefono.value || /^\d{10}$/.test(telefono.value)); });
+  dni.addEventListener("input", revisarPaciente);
+  apellido.addEventListener("change", revisarPaciente);
+  [profesional, fecha, hora].forEach(function (c) {
+    c.addEventListener("input", function () { revisarHorario(); revisarServicio(); });
+    c.addEventListener("change", function () { revisarHorario(); revisarServicio(); });
+  });
+  contraturno.addEventListener("change", function () { revisarHorario(); revisarServicio(); });
+  form.addEventListener("submit", function (e) {
+    if (!form.checkValidity()) { e.preventDefault(); form.reportValidity(); }
+  });
+
+  revisarPaciente();
+  revisarHorario();
+  revisarServicio();
+})();
+</script>
+{% endblock %}

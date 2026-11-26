@@ -1,0 +1,36 @@
+{% extends "publico/base.html" %}
+{% block titulo %}Mis turnos · {{ consultorio.nombre }}{% endblock %}
+{% macro fila(t) %}
+<li class="tarjeta">
+  <div>
+    <p class="cuando">{{ (t.fecha|fecha_completa)|capitalize }} · {{ t.hora.strftime('%H:%M') }} hs</p>
+    <p class="suave">{{ t.prestacion.nombre }} · {{ t.profesional.nombre_publico }}</p>
+    <p class="suave chico">Código {{ t.token_comprobante[:8]|upper }}</p>
+  </div>
+  <div class="lado">
+    <span class="insignia estado-{{ t.estado }}">{{ t.estado|capitalize }}</span>
+    <a href="{{ url_for('publico.comprobante', token=t.token_comprobante) }}" class="btn btn-secundario">Ver o cancelar</a>
+  </div>
+</li>
+{% endmacro %}
+{% block contenido %}
+<div class="angosto">
+  <h1 class="titulo-paso">Mis turnos</h1>
+  <p class="bajada">Hola, {{ current_user.nombre }}. Acá ves tus turnos y podés cancelarlos hasta 4 horas antes.</p>
+
+  <h2 class="subtitulo">Próximos</h2>
+  {% if proximos %}
+    <ul class="lista-turnos">{% for t in proximos %}{{ fila(t) }}{% endfor %}</ul>
+  {% else %}
+    <div class="tarjeta vacio" style="margin-top:16px">
+      <p><b>No tenés turnos próximos.</b></p>
+      <a href="{{ url_for('publico.reservar') }}" class="btn btn-primario" style="margin-top:16px">Sacar un turno</a>
+    </div>
+  {% endif %}
+
+  {% if anteriores %}
+    <h2 class="subtitulo">Anteriores y cancelados</h2>
+    <ul class="lista-turnos">{% for t in anteriores %}{{ fila(t) }}{% endfor %}</ul>
+  {% endif %}
+</div>
+{% endblock %}

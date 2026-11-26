@@ -1,0 +1,101 @@
+{% extends "publico/base.html" %}
+{% block titulo %}Elegí día y horario · {{ consultorio.nombre }}{% endblock %}
+{% block contenido %}
+{% with paso = 2 %}{% include "publico/_pasos.html" %}{% endwith %}
+
+<div class="elegido">
+  <span class="icono" aria-hidden="true">{{ prestacion.icono or '✚' }}</span>
+  <div>
+    <b>{{ prestacion.nombre }}</b>
+    {% if profesional %}<span>Te atiende <strong>{{ profesional.nombre_publico }}</strong>, {{ profesional.especialidad }} · <strong>{{ prestacion.precio|pesos }}</strong></span>{% endif %}
+  </div>
+  <a href="{{ url_for('publico.reservar') }}" class="btn btn-secundario">Cambiar</a>
+</div>
+
+{% if not profesional %}
+  <div class="aviso aviso-info">
+    Todavía no hay horarios cargados para <strong>{{ prestacion.nombre }}</strong>.
+    Llamanos al <strong>{{ consultorio.telefono }}</strong> y lo resolvemos.
+  </div>
+{% else %}
+
+{% if profesionales|length > 1 %}
+<form method="get" class="tarjeta tarjeta-cuerpo elegir-profesional">
+  <input type="hidden" name="prestacion" value="{{ prestacion.id }}">
+  <label for="profesional">¿Con quién querés atenderte?</label>
+  <span class="campo"><select id="profesional" name="profesional" onchange="this.form.submit()" style="max-width:28rem">
+    {% for p in profesionales %}<option value="{{ p.id }}" {{ 'selected' if p.id == profesional.id }}>{{ p.nombre_publico }} · {{ p.especialidad }}</option>{% endfor %}
+  </select></span>
+  <noscript><button class="btn btn-secundario" style="margin-top:12px">Ver horarios</button></noscript>
+</form>
+{% endif %}
+
+<h1 class="titulo-paso">Elegí el día</h1>
+
+{% if not hay_libres %}
+  <div class="aviso aviso-info" style="margin-top:24px">
+    No quedan horarios libres para <strong>{{ prestacion.nombre }}</strong> en {{ nombre_mes|lower }}.
+    {% if mes_siguiente %}Probá con <a class="enlace" href="{{ url_for('publico.reservar', mes=mes_siguiente, **base) }}">el mes siguiente</a>.
+    {% else %}Llamanos al {{ consultorio.telefono }} y lo resolvemos.{% endif %}
+  </div>
+{% endif %}
+
+<div class="calendario-y-horas">
+  <section class="tarjeta tarjeta-cuerpo" aria-labelledby="titulo-calendario">
+    <div class="cabecera-mes">
+      <h2 id="titulo-calendario">{{ nombre_mes }}</h2>
+      <div style="display:flex;gap:8px">
+        <a href="{{ url_for('publico.reservar', mes=mes_anterior, **base) }}" class="btn btn-secundario {{ 'apagado' if not mes_anterior }}" aria-label="Mes anterior">‹</a>
+        <a href="{{ url_for('publico.reservar', mes=mes_siguiente, **base) }}" class="btn btn-secundario {{ 'apagado' if not mes_siguiente }}" aria-label="Mes siguiente">›</a>
+      </div>
+    </div>
+    <table class="calendario">
+      <caption class="saltar">Días con turnos disponibles</caption>
+      <thead><tr>{% for d in ['Lu', 'Ma', 'Mi', 'Ju', 'Vi', 'Sá', 'Do'] %}<th scope="col">{{ d }}</th>{% endfor %}</tr></thead>
+      <tbody>
+        {% for semana in semanas %}
+        <tr>
+          {% for dia in semana %}
+          <td>
+            {% set cantidad = libres.get(dia, [])|length %}
+            {% if dia.month != mes.month %}
+              <span class="dia fuera">{{ dia.day }}</span>
+            {% elif cantidad %}
+              <a href="{{ url_for('publico.reservar', mes=mes.strftime('%Y-%m'), fecha=dia.isoformat(), **base) }}"
+                 class="dia {{ 'elegido-dia' if dia == fecha }}" {% if dia == fecha %}aria-current="date"{% endif %}
+                 aria-label="{{ dia|fecha_completa }}, {{ cantidad }} horarios libres">
+                <b>{{ dia.day }}</b><small>{{ cantidad }} libres</small>
+              </a>
+            {% else %}
+              <span class="dia {{ 'hoy' if dia == hoy }}">{{ dia.day }}</span>
+            {% endif %}
+          </td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <p class="leyenda"><i></i>Los días en verde tienen horarios libres.</p>
+  </section>
+
+  <section class="tarjeta tarjeta-cuerpo" aria-labelledby="titulo-horarios">
+    {% if not fecha %}
+      <h2 id="titulo-horarios" style="font-size:20px">Después, el horario</h2>
+      <p class="bajada">Primero tocá un día en verde. Acá te vamos a mostrar los horarios libres de ese día.</p>
+    {% else %}
+      <h2 id="titulo-horarios" style="font-size:20px">Horarios del {{ fecha|fecha_completa }}</h2>
+      {% if horas %}
+        <p class="suave">Tocá el horario que te sirva.</p>
+        <div class="horas">
+          {% for h in horas %}
+          <a class="hora" href="{{ url_for('publico.reservar', mes=mes.strftime('%Y-%m'), fecha=fecha.isoformat(), hora=h, **base) }}">{{ h }}</a>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="bajada">No quedan horarios libres para ese día. Elegí otro en el calendario.</p>
+      {% endif %}
+    {% endif %}
+  </section>
+</div>
+{% endif %}
+{% endblock %}

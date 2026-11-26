@@ -1,0 +1,57 @@
+{% extends "publico/base.html" %}
+{% block titulo %}Confirmá tu turno · {{ consultorio.nombre }}{% endblock %}
+{% block contenido %}
+<div class="angosto">
+  {% with paso = 3 %}{% include "publico/_pasos.html" %}{% endwith %}
+
+  <h1 class="titulo-paso">Últimos detalles y listo</h1>
+  <p class="bajada">Revisá que esté todo bien y confirmá.</p>
+
+  <div class="resumen-turno">
+    <p class="rotulo">Tu turno</p>
+    <p class="grande"><span aria-hidden="true">{{ prestacion.icono or '✚' }}</span> {{ prestacion.nombre }}</p>
+    <p class="cuando">{{ (fecha|fecha_completa)|capitalize }} a las <strong>{{ hora }} hs</strong></p>
+    <p>Con {{ profesional.nombre_publico }}</p>
+    <p class="valor">Valor de la consulta: <strong style="font-size:24px">{{ prestacion.precio|pesos }}</strong></p>
+    <a href="{{ volver }}">Cambiar día u horario</a>
+  </div>
+
+  <form method="post" action="{{ url_for('publico.confirmar') }}" class="tarjeta tarjeta-cuerpo formulario">
+    <input type="hidden" name="prestacion_id" value="{{ prestacion.id }}">
+    <input type="hidden" name="profesional_id" value="{{ profesional.id }}">
+    <input type="hidden" name="fecha" value="{{ fecha.isoformat() }}">
+    <input type="hidden" name="hora" value="{{ hora }}">
+
+    <div>
+      <p class="etiqueta-grande">Tus datos</p>
+      <div class="tus-datos">
+        <b>{{ paciente.apellido }}, {{ paciente.nombre }}</b>
+        <span class="suave">DNI {{ paciente.dni }}{% if paciente.telefono %} · Tel. {{ paciente.telefono }}{% endif %}</span>
+      </div>
+    </div>
+
+    {% if prestacion.admite_videoconsulta %}
+    <fieldset>
+      <legend>¿Cómo querés atenderte?</legend>
+      <div class="opciones">
+        {% for valor, icono, titulo, detalle in [
+          ('presencial', '🏥', 'En el consultorio', 'Venís a ' ~ consultorio.direccion.split(',')[0] ~ '.'),
+          ('videoconsulta', '💻', 'Por videollamada', 'El consultorio te envía el enlace antes del turno.'),
+        ] %}
+        <label class="opcion">
+          <input type="radio" name="modalidad" value="{{ valor }}" {{ 'checked' if loop.first }}>
+          <span><b><span aria-hidden="true">{{ icono }}</span> {{ titulo }}</b><span>{{ detalle }}</span></span>
+        </label>
+        {% endfor %}
+      </div>
+    </fieldset>
+    {% else %}
+      <input type="hidden" name="modalidad" value="presencial">
+      <p class="nota-turno" style="margin:0">{{ prestacion.nombre }} se hace en el consultorio: es presencial.</p>
+    {% endif %}
+
+    <button type="submit" class="btn btn-primario btn-bloque">Confirmar mi turno</button>
+    <p class="centrado suave">Se paga en el consultorio el día del turno. Si después no podés venir, avisanos: liberás el lugar para otra persona.</p>
+  </form>
+</div>
+{% endblock %}
